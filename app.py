@@ -2,24 +2,24 @@ from datetime import datetime, timedelta
 import jwt
 import os
 import requests
-from flask import Flask, session, abort, redirect, request, render_template
+from flask import Flask, session, abort, redirect, request, render_template, jsonify
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
-#from flask_sqlalchemy import SQLAlchemy
-from DbQuery.backend.app import get_admin, Admin, db
+# from flask_sqlalchemy import SQLAlchemy
+from DbQuery.backend.app import get_admin, Admin, db, add_admin
 
 app = Flask("Google Login App")
 app.secret_key = "CodeSpecialist.com"
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-
 # Set a placeholder value for SQLALCHEMY_DATABASE_URI
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sitemgmt.db'  # You can adjust this according to your database configuration
+app.config[
+    'SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site_mgmt.db'  # You can adjust this according to your database configuration
 app.config['SQLALCHEMY_BINDS'] = {
-        'sitemgmt_db': 'sqlite:///sitemgmt.db'
-    }
+    'sitemgmt_db': 'sqlite:///site_mgmt.db'
+}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -32,7 +32,8 @@ client_secrets_file = os.path.join("./client_secret.json")
 
 flow = Flow.from_client_secrets_file(
     client_secrets_file=client_secrets_file,
-    scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email", "openid"],
+    scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email",
+            "openid"],
     redirect_uri="http://localhost:8080/callback"
 )
 
@@ -49,6 +50,7 @@ def login_is_required(function):
 
 def get_admin_by_email(email):
     return Admin.query.filter_by(email=email).first()
+
 
 def authenticate_user(email):
     # Check if the user is an admin based on their email
@@ -97,17 +99,33 @@ def callback():
     session["google_id"] = id_info.get("sub")
     session["name"] = id_info.get("name")
 
+    # # ADD example admin
+    # test_admin = {
+    #     'admin_id': 1,
+    #     'email': "kl3374@columbia.edu",
+    #     'isDeleted': 0
+    # }
+    #
+    # response = add_admin(test_admin)
+    # print("RESP: ", response)
 
     admin = get_admin(id_info.get("email"))
 
-    if not admin or admin.isDeleted:
-        abort(401)  # Unauthorized
+    if isinstance(admin, tuple):
+        error_message, error_code = admin
+        if error_code == 404:
+            return jsonify({"error": "User not found in administrators database"}), 404
+        else:
+            return jsonify({"error": f"Error {error_code}: {error_message}"}), error_code
+
+    print("ADMIN FROM APP.PY ", admin)
 
     # Encode user information into JWT
     encoded_jwt = encode_jwt({"google_id": id_info.get("sub"), "name": id_info.get("name")})
     print("encoded_jwt: ", encoded_jwt)
     session["jwt_token"] = encoded_jwt
     return redirect("/protected_area")
+
 
 @app.route("/logout")
 def logout():
@@ -120,6 +138,7 @@ def index():
     return render_template(
         "index.html"
     )
+
 
 @app.route("/protected_area")
 @login_is_required
