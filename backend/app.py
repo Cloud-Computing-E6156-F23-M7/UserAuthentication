@@ -8,7 +8,7 @@ from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
 # from flask_sqlalchemy import SQLAlchemy
-from DbQuery.backend.app import get_admin, Admin, db, add_admin
+#from DbQuery.backend.app import get_admin, Admin, db, add_admin
 
 app = Flask("Google Login App")
 app.secret_key = "APP_SECRET_KEY"
@@ -22,7 +22,7 @@ app.config['SQLALCHEMY_BINDS'] = {
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db.init_app(app)
+#db.init_app(app)
 
 ## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
@@ -115,8 +115,13 @@ def callback():
     # response = add_admin(test_admin)
     # print("RESP: ", response)
 
-    ## TODO: Need to call the service instead of currently manually calling imported method from app.py in DbQuery directory
-    admin = get_admin(id_info.get("email"))
+    response = requests.get("http://127.0.0.1:5000/api/admin/",
+        params={"email": id_info.get("email")})
+
+    if response.status_code != 200:
+        abort(401)  # Unauthorized
+
+    admin = response.json()
 
     if isinstance(admin, tuple):
         error_message, error_code = admin
