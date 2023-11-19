@@ -16,7 +16,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 ## Configuration for the Flask-SQLAlchemy extension
 app.config[
-    'SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site_mgmt.db'  # You can adjust this according to your database configuration
+    'SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sitemgmt.db'  # You can adjust this according to your database configuration
 app.config['SQLALCHEMY_BINDS'] = {
     'sitemgmt_db': 'sqlite:///site_mgmt.db'
 }
@@ -27,7 +27,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 ## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 5
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
 ## Google SSO Configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
@@ -115,8 +115,8 @@ def callback():
     # response = add_admin(test_admin)
     # print("RESP: ", response)
 
-    response = requests.get("http://127.0.0.1:5000/api/admin/",
-        params={"email": id_info.get("email")})
+    response = requests.post("http://127.0.0.1:5000/api/admin/check/",
+        json = {"email": id_info.get("email")})
 
     if response.status_code != 200:
         abort(401)  # Unauthorized
@@ -130,7 +130,8 @@ def callback():
         else:
             return jsonify({"error": f"Error {error_code}: {error_message}"}), error_code
 
-    print("ADMIN FROM APP.PY ", admin)
+    # For every other admin resource, pass session["admin_id"]
+    session["admin_id"] = admin["admin_id"]
 
     # Encode user information into JWT
     encoded_jwt = encode_jwt({"google_id": id_info.get("sub"), "name": id_info.get("name")})
