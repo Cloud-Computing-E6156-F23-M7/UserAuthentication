@@ -7,8 +7,6 @@ from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
-# from flask_sqlalchemy import SQLAlchemy
-#from DbQuery.backend.app import get_admin, Admin, db, add_admin
 
 app = Flask("Google Login App")
 app.secret_key = "APP_SECRET_KEY"
@@ -22,7 +20,6 @@ app.config['SQLALCHEMY_BINDS'] = {
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-#db.init_app(app)
 
 ## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
