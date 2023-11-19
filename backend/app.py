@@ -11,10 +11,10 @@ import google.auth.transport.requests
 from DbQuery.backend.app import get_admin, Admin, db, add_admin
 
 app = Flask("Google Login App")
-app.secret_key = "CodeSpecialist.com"
+app.secret_key = "APP_SECRET_KEY"
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-# Set a placeholder value for SQLALCHEMY_DATABASE_URI
+## Configuration for the Flask-SQLAlchemy extension
 app.config[
     'SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site_mgmt.db'  # You can adjust this according to your database configuration
 app.config['SQLALCHEMY_BINDS'] = {
@@ -24,11 +24,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
+
+## Google SSO Configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
-client_secrets_file = os.path.join("./client_secret.json")
+client_secrets_file = os.path.join("client_secret.json")
 
 flow = Flow.from_client_secrets_file(
     client_secrets_file=client_secrets_file,
@@ -39,6 +42,10 @@ flow = Flow.from_client_secrets_file(
 
 
 def login_is_required(function):
+    """
+    login_is_required: method to check if requests require active Google SSO session
+    """
+
     def wrapper(*args, **kwargs):
         if "google_id" not in session:
             return abort(401)  # Authorization required
@@ -48,31 +55,27 @@ def login_is_required(function):
     return wrapper
 
 
-def get_admin_by_email(email):
-    return Admin.query.filter_by(email=email).first()
-
-
-def authenticate_user(email):
-    # Check if the user is an admin based on their email
-    admin = get_admin_by_email(email)
-    if admin:
-        return admin
-
-    return None
-
-
 def encode_jwt(user_info):
+    """
+    encode_jwt: creates an encoded JWT token provided user information
+    """
     expire_time = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     user_info["exp"] = expire_time
     return jwt.encode(user_info, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_jwt(encoded_jwt):
+    """
+    decode: decodes a JWT token
+    """
     return jwt.decode(encoded_jwt, JWT_SECRET_KEY, algorithms=[ALGORITHM])
 
 
 @app.route("/login")
 def login():
+    """
+    login: initializes login state and returns redirected URL to Google SSO
+    """
     authorization_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(authorization_url)
@@ -80,6 +83,9 @@ def login():
 
 @app.route("/callback")
 def callback():
+    """
+    callback: rerouted page after logging in that handles Google SSO and encoding of JWT token
+    """
     flow.fetch_token(authorization_response=request.url)
 
     if not session["state"] == request.args["state"]:
@@ -99,7 +105,7 @@ def callback():
     session["google_id"] = id_info.get("sub")
     session["name"] = id_info.get("name")
 
-    # # ADD example admin
+    # ## ADD admin code (if needed)
     # test_admin = {
     #     'admin_id': 1,
     #     'email': "kl3374@columbia.edu",
@@ -109,6 +115,7 @@ def callback():
     # response = add_admin(test_admin)
     # print("RESP: ", response)
 
+    ## TODO: Need to call the service instead of currently manually calling imported method from app.py in DbQuery directory
     admin = get_admin(id_info.get("email"))
 
     if isinstance(admin, tuple):
@@ -129,23 +136,33 @@ def callback():
 
 @app.route("/logout")
 def logout():
+    """
+    logout: user can choose to clear the session by logging out
+    """
     session.clear()
     return redirect("/")
 
 
 @app.get("/")
 def index():
+    """
+    index: returns home landing page for where users can choose to log in
+    """
     return render_template(
         "index.html"
     )
 
 
+##
 @app.route("/protected_area")
 @login_is_required
 def protected_area():
-    # Decode JWT to get user information
+    """
+    protected_area: decodes JWT to get user information and routes user to admin landing page
+    """
     decoded_jwt = decode_jwt(session["jwt_token"])
     user_name = decoded_jwt.get("name")
+    print("decoded_jwt: ", decoded_jwt)
     return render_template(
         "protected_area.html",
         user_name=user_name
