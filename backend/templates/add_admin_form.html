@@ -1,0 +1,156 @@
+<!-- add_admin_form.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MalariaStats Add Admin</title>
+    <style>
+        body {
+            background: url('https://upload.wikimedia.org/wikipedia/commons/a/ae/World-map-of-past-and-current-malaria-prevalence-world-development-report-2009.png') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Arial', sans-serif;
+            color: #000;
+            padding: 50px;
+            text-align: center;
+            opacity: 1;
+        }
+
+        h1 {
+            color: #000;
+        }
+
+        p {
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        form {
+            margin-top: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 20px;
+            color: #000;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Adjust the opacity for the background image */
+        body::before {
+            content: "";
+            background: rgba(255, 255, 255, 0.75);
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            position: fixed;
+            z-index: -1;
+        }
+
+        /* Style for the container box */
+        .response-container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        /* Move the "Back to Dashboard" button to the bottom left */
+        .back-to-dashboard-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+        }
+
+        .back-to-dashboard-btn:hover {
+            background-color: #c0392b; /* Darker red on hover */
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Add MalariaStats Admin</h1>
+    <p>Enter the email of the admin you want to add below:</p>
+    <form id="addAdminForm">
+        <label for="email">Admin Email:</label>
+        <input type="email" id="email" name="email" required>
+        <br>
+        <!-- Hidden input field for server URL -->
+        <input type="hidden" id="serverUrl" name="serverUrl" value="{{ server_url }}">
+        <button type="submit">Submit</button>
+    </form>
+
+    <!-- Container for displaying the response from the database -->
+    <div id="result" class="response-container"></div>
+
+    <!-- Add a button to redirect to the admin home page -->
+    <a href="/protected_area" class="back-to-dashboard-btn">Back to Dashboard</a>
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Set the server URL dynamically
+            $("#serverUrl").val("{{ server_url }}");
+
+            // Intercept the form submission
+            $("#addAdminForm").submit(function (event) {
+                // Prevent the default form submission
+                event.preventDefault();
+
+                // Get the email value from the form
+                var email = $("#email").val();
+                // Get the server URL from the form
+                var serverUrl = $("#serverUrl").val();
+
+                // Make an AJAX request to the server
+                $.ajax({
+                    type: "POST",
+                    url: serverUrl + "/api/admin/",  // Concatenate the server URL
+                    contentType: "application/json;charset=UTF-8",
+                    data: JSON.stringify({ "email": email }),
+                    success: function (response) {
+                        // Display the response on the page
+                        $("#result").html('<p>' + response + '</p>');
+                    },
+                    error: function (error) {
+                        // Display the error in the container box
+                        $("#result").html('<p>Error: ' + error.responseText + '</p>');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

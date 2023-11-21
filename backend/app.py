@@ -7,9 +7,12 @@ from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
+import secrets
+from functools import wraps
 
 app = Flask("Google Login App")
-app.secret_key = "APP_SECRET_KEY"
+#app.secret_key = "APP_SECRET_KEY"
+app.secret_key = secrets.token_hex(16)
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 ## Configuration for the Flask-SQLAlchemy extension
@@ -19,6 +22,8 @@ app.config['SQLALCHEMY_BINDS'] = {
     'sitemgmt_db': 'sqlite:///site_mgmt.db'
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+DB_URI = "http://127.0.0.1:5000"
+APP_PORT = 8084
 
 
 ## JWT Configuration
@@ -34,7 +39,7 @@ flow = Flow.from_client_secrets_file(
     client_secrets_file=client_secrets_file,
     scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email",
             "openid"],
-    redirect_uri="http://localhost:8080/callback"
+    redirect_uri="http://localhost:"+str(APP_PORT)+"/callback"
 )
 
 
@@ -42,7 +47,7 @@ def login_is_required(function):
     """
     login_is_required: method to check if requests require active Google SSO session
     """
-
+    @wraps(function)
     def wrapper(*args, **kwargs):
         if "google_id" not in session:
             return abort(401)  # Authorization required
@@ -85,7 +90,7 @@ def callback():
     """
     flow.fetch_token(authorization_response=request.url)
 
-    if not session["state"] == request.args["state"]:
+    if not session.get("state") == request.args.get("state"):
         abort(500)  # State does not match!
 
     credentials = flow.credentials
@@ -112,7 +117,7 @@ def callback():
     # response = add_admin(test_admin)
     # print("RESP: ", response)
 
-    response = requests.post("http://127.0.0.1:5000/api/admin/check/",
+    response = requests.post(DB_URI+"/api/admin/check/",
         json = {"email": id_info.get("email")})
 
     if response.status_code != 200:
@@ -171,6 +176,19 @@ def protected_area():
         user_name=user_name
     )
 
+@app.route("/add_admin")
+@login_is_required
+def add_admin_form():
+    """
+    protected_area: decodes JWT to get user information and routes user to admin landing page
+    """
+    decoded_jwt = decode_jwt(session["jwt_token"])
+    user_name = decoded_jwt.get("name")
+    print("decoded_jwt: ", decoded_jwt)
+    return render_template(
+        "add_admin_form.html",
+        server_url=DB_URI
+    )
 
 if __name__ == "__main__":
-    app.run(port=8080, debug=True)
+    app.run(port=APP_PORT, debug=True)

@@ -39,6 +39,24 @@
             margin-top: 20px;
         }
 
+        .logout-btn:hover {
+            background-color: #c0392b; /* Darker red on hover */
+        }
+
+        .add-admin-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #3498db; /* Blue color */
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .add-admin-btn:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+        }
+
         /* Adjust the opacity for the background image */
         body::before {
             content: "";
@@ -60,7 +78,7 @@
     <div class="container">
         <h2>Hello, {{ user_name }}!</h2>
         <p>This is the admin dashboard. You can add more content here.</p>
-
+        <a href="/add_admin" class="add-admin-btn">Add Admin</a>
         <a href="/logout" class="logout-btn">Logout</a>
     </div>
 </body>
