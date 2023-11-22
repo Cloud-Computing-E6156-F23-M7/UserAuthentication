@@ -80,8 +80,8 @@ def login():
         }
     )
 
-    redirect_uri = url_for('callback', _external=True)
-    print(redirect_uri)
+    #redirect_uri = url_for('callback', _external=True)
+    redirect_uri = "http://localhost:"+str(APP_PORT)+"/callback"
     session['nonce'] = generate_token()
     return oauth.login.authorize_redirect(redirect_uri, nonce=session['nonce'])
 
