@@ -9,11 +9,13 @@ from pip._vendor import cachecontrol
 import google.auth.transport.requests
 import secrets
 from functools import wraps
+from flask_cors import CORS #added
 
 app = Flask("Google Login App")
 #app.secret_key = "APP_SECRET_KEY"
 app.secret_key = secrets.token_hex(16)
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 
 ## Configuration for the Flask-SQLAlchemy extension
 app.config[
@@ -23,8 +25,9 @@ app.config['SQLALCHEMY_BINDS'] = {
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 DB_URI = "http://127.0.0.1:5000"
-APP_PORT = 8084
+APP_PORT = 8080
 
+CORS(app) #added
 
 ## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
@@ -189,6 +192,105 @@ def add_admin_form():
         "add_admin_form.html",
         server_url=DB_URI
     )
+
+# remote API requests to SiteMgmt DB
+def make_remote_request(endpoint, method='GET', data=None):
+    try:
+        if method == 'GET':
+            response = requests.get(f"{DB_URI}/{endpoint}")
+        elif method == 'POST':
+            response = requests.post(f"{DB_URI}/{endpoint}", json=data)
+        elif method == 'PUT':
+            response = requests.put(f"{DB_URI}/{endpoint}", json=data)
+        elif method == 'DELETE':
+            response = requests.delete(f"{DB_URI}/{endpoint}")
+        else:
+            return jsonify({"error": "Invalid request method"}), 400
+        response.raise_for_status()  # Raise an error for bad responses (4xx and 5xx)
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}") # Handle exceptions (e.g., network errors)
+        return jsonify({"error": f"Failed to fetch data from the remote API: {e}"}), 500  # Return an error response with status code 500
+
+
+# Reset database route
+@app.route('/api/reset/sitemgmt/', methods=['PUT'])
+#@login_is_required
+def reset_sitemgmt_db():
+    #decoded_jwt = decode_jwt(session["jwt_token"])
+    #user_name = decoded_jwt.get("name")
+    return make_remote_request('api/reset/sitemgmt/', method='PUT')
+
+# Admin resource routes
+@app.route('/api/admin/', methods=['GET'])
+#@login_is_required
+def get_all_admin():
+    #decoded_jwt = decode_jwt(session["jwt_token"])
+    #user_name = decoded_jwt.get("name")
+    return make_remote_request('api/admin/', method='GET')
+
+@app.route('/api/admin/<int:admin_id>/', methods=['GET'])
+def get_admin(admin_id):
+    return make_remote_request(f'api/admin/{admin_id}/', method='GET')
+
+@app.route('/api/admin/check/', methods=['POST'])
+def check_email():
+    return make_remote_request('api/admin/check/', method='POST', data=request.json)
+
+@app.route('/api/admin/', methods=['POST'])
+def add_admin():
+    return make_remote_request('api/admin/', method='POST', data=request.json)
+
+@app.route('/api/admin/<int:admin_id>/', methods=['DELETE'])
+def delete_admin(admin_id):
+    return make_remote_request(f'api/admin/{admin_id}/', method='DELETE')
+
+@app.route('/api/admin/<int:admin_id>/', methods=['PUT'])
+def update_admin(admin_id):
+    return make_remote_request(f'api/admin/{admin_id}/', method='PUT', data=request.json)
+
+# Feedback resource route, this should only be used on SiteMgmt
+@app.route('/api/feedback/', methods=['POST'])
+def add_feedback():
+    return make_remote_request('api/feedback/', method='POST', data=request.json)
+
+# Feedback resources that are only authorized for admin route
+@app.route('/api/feedback/<int:feedback_id>/')
+def get_feedback(feedback_id):
+    return make_remote_request(f'api/feedback/{feedback_id}/', method='GET')
+
+@app.route('/api/feedback/<int:feedback_id>/', methods=['PUT'])
+def update_feedback(feedback_id):
+    return make_remote_request(f'api/feedback/{feedback_id}/', method='PUT', data=request.json)
+
+@app.route('/api/feedback/<int:feedback_id>/', methods=['DELETE'])
+def delete_feedback(feedback_id):
+    return make_remote_request(f'api/feedback/{feedback_id}/', method='DELETE')
+
+@app.route('/api/admin/feedback/')
+def get_all_feedback():
+    return make_remote_request('api/admin/feedback/', method='GET')
+
+# Action resource only authorized for admin routes
+@app.route('/api/admin/action/<int:action_id>/')
+def get_action(action_id):
+    return make_remote_request(f'api/admin/action/{action_id}/', method='GET')
+
+@app.route('/api/admin/action/')
+def get_all_action():
+    return make_remote_request('api/admin/action/', method='GET')
+
+@app.route('/api/admin/<int:admin_id>/feedback/<int:feedback_id>/', methods=['POST'])
+def add_action(admin_id, feedback_id):
+    return make_remote_request(f'api/admin/{admin_id}/feedback/{feedback_id}/', method='POST', data=request.json)
+
+@app.route('/api/admin/action/<int:action_id>/', methods=['PUT'])
+def update_action(action_id):
+    return make_remote_request(f'api/admin/action/{action_id}/', method='PUT', data=request.json)
+
+@app.route('/api/admin/action/<int:action_id>/', methods=['DELETE'])
+def delete_action(action_id):
+    return make_remote_request(f'api/admin/action/{action_id}/', method='DELETE')
 
 if __name__ == "__main__":
     app.run(port=APP_PORT, debug=True)
