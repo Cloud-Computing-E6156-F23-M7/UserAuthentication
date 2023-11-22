@@ -3,9 +3,8 @@ import jwt
 import os
 import requests
 import json
-from google_auth_oauthlib.flow import Flow
 from functools import wraps
-from flask import Flask, render_template, url_for, redirect, session, abort
+from flask import Flask, render_template, url_for, redirect, abort
 from authlib.integrations.flask_client import OAuth
 from authlib.common.security import generate_token
 
@@ -27,6 +26,7 @@ APP_PORT = 8084
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
+session = {}
 
 oauth = OAuth(app)
 
@@ -81,7 +81,6 @@ def login():
     )
 
     redirect_uri = url_for('callback', _external=True)
-    print(redirect_uri)
     session['nonce'] = generate_token()
     return oauth.login.authorize_redirect(redirect_uri, nonce=session['nonce'])
 
