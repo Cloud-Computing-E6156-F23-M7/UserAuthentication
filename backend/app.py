@@ -1,16 +1,27 @@
 from datetime import datetime, timedelta
 import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 import os
 import requests
 import json
-from google_auth_oauthlib.flow import Flow
+import secrets
 from functools import wraps
-from flask import Flask, render_template, url_for, redirect, session, abort
+from flask import Flask, render_template, redirect, session, request, Response
 from authlib.integrations.flask_client import OAuth
 from authlib.common.security import generate_token
 
+
+with open('./client_secret.json') as json_file:
+    data = json.load(json_file)
+    GOOGLE_CLIENT_ID = data['web']['client_id']
+    GOOGLE_CLIENT_SECRET = data['web']['client_secret']
+
+
 app = Flask("Google Login App")
-app.secret_key = os.urandom(12)
+app.secret_key = GOOGLE_CLIENT_SECRET
+app.config["SESSION_PERMANENT"] = True
+app.config["SESSION_TYPE"] = "filesystem"
+app.config['WTF_CSRF_METHODS'] = False
 
 ## Configuration for the Flask-SQLAlchemy extension
 app.config[
@@ -19,16 +30,25 @@ app.config['SQLALCHEMY_BINDS'] = {
     'sitemgmt_db': 'sqlite:///site_mgmt.db'
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-DB_URI = "http://127.0.0.1:5000"
+DB_URI = "http://127.0.0.1:8080"
 APP_PORT = 8084
 
+oauth = OAuth(app)
+CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
+google = oauth.register(
+            name='google',
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            server_metadata_url=CONF_URL,
+            client_kwargs={
+                'scope': 'openid email profile'
+            }
+        )
 
 ## JWT Configuration
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
-
-oauth = OAuth(app)
 
 
 def login_is_required(function):
@@ -38,7 +58,7 @@ def login_is_required(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
         if "google_id" not in session:
-            return abort(401)  # Authorization required
+            return errorPage()  # Authorization required
         else:
             return function()
 
@@ -49,41 +69,51 @@ def encode_jwt(user_info):
     """
     encode_jwt: creates an encoded JWT token provided user information
     """
-    expire_time = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    user_info["exp"] = expire_time
-    return jwt.encode(user_info, JWT_SECRET_KEY, algorithm=ALGORITHM)
+    try:
+        expire_time = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        user_info["exp"] = expire_time
+        return jwt.encode(user_info, JWT_SECRET_KEY, algorithm=ALGORITHM)
+    except Exception as e:
+        return None, f"Error encoding JWT: {e}"
 
 
 def decode_jwt(encoded_jwt):
     """
     decode: decodes a JWT token
     """
-    return jwt.decode(encoded_jwt, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+    try:
+        return jwt.decode(encoded_jwt, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+    except ExpiredSignatureError:
+        return None, "Error: JWT has expired."
+    except InvalidTokenError as e:
+        return None, f"Error decoding JWT: {e}"
+    except Exception as e:
+        return None, f"Unexpected error decoding JWT: {e}"
+
+def validate_jwt(encoded_jwt):
+    decoded_jwt = decode_jwt(session["jwt_token"])
+    if isinstance(decoded_jwt, tuple):
+        return errorPage(decoded_jwt[1])
+    user_name = decoded_jwt.get("name")
+    return user_name
+
+
+def errorPage(error_message = 'Login is Required to access this page'):
+    return render_template("error_page.html", error_type=error_message)
+
+
+def no_cache_headers(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 
 @app.route("/login")
 def login():
-
-    with open('./client_secret.json') as json_file:
-        data = json.load(json_file)
-        GOOGLE_CLIENT_ID = data['web']['client_id']
-        GOOGLE_CLIENT_SECRET = data['web']['client_secret']
-
-    CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
-    oauth.register(
-        name='login',
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-        server_metadata_url=CONF_URL,
-        client_kwargs={
-            'scope': 'openid email profile'
-        }
-    )
-
-    #redirect_uri = url_for('callback', _external=True)
+    session["name"] = request.form.get("name")
     redirect_uri = "http://localhost:"+str(APP_PORT)+"/callback"
     session['nonce'] = generate_token()
-    return oauth.login.authorize_redirect(redirect_uri, nonce=session['nonce'])
+    return no_cache_headers(google.authorize_redirect(
+        redirect_uri, nonce=session['nonce']))
 
 
 @app.route("/callback")
@@ -91,8 +121,8 @@ def callback():
     """
     callback: rerouted page after logging in that handles Google SSO and encoding of JWT token
     """
-    token = oauth.login.authorize_access_token()
-    user = oauth.login.parse_id_token(token, nonce=session['nonce'])
+    token = google.authorize_access_token()
+    user = google.parse_id_token(token, nonce=session['nonce'])
     session["google_id"] = user
     session["email"] = user["email"]
     session["name"] = user["name"]
@@ -102,26 +132,18 @@ def callback():
 
 
     if response.status_code != 200:
-        abort(401)  # Unauthorized
+        return errorPage(error_message = "User not found in administrators database")
 
     admin = response.json()
-
-
-    if isinstance(admin, tuple):
-        error_message, error_code = admin
-        if error_code == 404:
-            return jsonify({"error": "User not found in administrators database"}), 404
-        else:
-            return jsonify({"error": f"Error {error_code}: {error_message}"}), error_code
 
     session["admin_id"] = admin["admin_id"]
 
     # Encode user information into JWT
     encoded_jwt = encode_jwt({"google_id": session["google_id"], "name": session["name"]})
-    print("encoded_jwt: ", encoded_jwt)
+    if isinstance(encoded_jwt, tuple):
+        return errorPage(encoded_jwt[1])
     session["jwt_token"] = encoded_jwt
-    return redirect("/protected_area")
-###
+    return no_cache_headers(redirect("/protected_area"))
 
 
 @app.route("/logout")
@@ -143,17 +165,13 @@ def index():
     )
 
 
-##
 @app.route("/protected_area")
 @login_is_required
 def protected_area():
     """
     protected_area: decodes JWT to get user information and routes user to admin landing page
     """
-    print("Got to Protected Area Function")
-    decoded_jwt = decode_jwt(session["jwt_token"])
-    user_name = decoded_jwt.get("name")
-    print("decoded_jwt: ", decoded_jwt)
+    user_name = validate_jwt(session["jwt_token"])
     return render_template(
         "protected_area.html",
         user_name=user_name
@@ -165,9 +183,7 @@ def add_admin_form():
     """
     protected_area: decodes JWT to get user information and routes user to admin landing page
     """
-    decoded_jwt = decode_jwt(session["jwt_token"])
-    user_name = decoded_jwt.get("name")
-    print("decoded_jwt: ", decoded_jwt)
+    validate_jwt(session["jwt_token"])
     return render_template(
         "add_admin_form.html",
         server_url=DB_URI
