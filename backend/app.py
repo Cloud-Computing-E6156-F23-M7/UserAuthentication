@@ -1,177 +1,229 @@
-from datetime import datetime, timedelta
-import jwt
-import os
-import requests
 import json
-from google_auth_oauthlib.flow import Flow
-from functools import wraps
-from flask import Flask, render_template, url_for, redirect, session, abort
-from authlib.integrations.flask_client import OAuth
-from authlib.common.security import generate_token
+import os
+import re
+import boto3
+import sqlite3
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, func, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.sql import func
+from botocore.exceptions import NoCredentialsError, ClientError
+from flask import jsonify, request
 
-app = Flask("Google Login App")
-app.secret_key = os.urandom(12)
+Base = declarative_base()
 
-## Configuration for the Flask-SQLAlchemy extension
-app.config[
-    'SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sitemgmt.db'  
-app.config['SQLALCHEMY_BINDS'] = {
-    'sitemgmt_db': 'sqlite:///site_mgmt.db'
-}
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-DB_URI = "http://127.0.0.1:5000"
-APP_PORT = 8084
+class Admin(Base):
+    __tablename__ = 'admin'
+    id = Column(Integer, primary_key=True)
+    email = Column(String(100), unique=True, nullable=False)
+    isDeleted = Column(Integer, default=False, nullable=False)
+    actions = relationship('Action', back_populates='admin')
 
-
-## JWT Configuration
-JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
-
-oauth = OAuth(app)
-
-
-def login_is_required(function):
-    """
-    login_is_required: method to check if requests require active Google SSO session
-    """
-    @wraps(function)
-    def wrapper(*args, **kwargs):
-        if "google_id" not in session:
-            return abort(401)  # Authorization required
-        else:
-            return function()
-
-    return wrapper
-
-
-def encode_jwt(user_info):
-    """
-    encode_jwt: creates an encoded JWT token provided user information
-    """
-    expire_time = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    user_info["exp"] = expire_time
-    return jwt.encode(user_info, JWT_SECRET_KEY, algorithm=ALGORITHM)
-
-
-def decode_jwt(encoded_jwt):
-    """
-    decode: decodes a JWT token
-    """
-    return jwt.decode(encoded_jwt, JWT_SECRET_KEY, algorithms=[ALGORITHM])
-
-
-@app.route("/login")
-def login():
-
-    with open('./client_secret.json') as json_file:
-        data = json.load(json_file)
-        GOOGLE_CLIENT_ID = data['web']['client_id']
-        GOOGLE_CLIENT_SECRET = data['web']['client_secret']
-
-    CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
-    oauth.register(
-        name='login',
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-        server_metadata_url=CONF_URL,
-        client_kwargs={
-            'scope': 'openid email profile'
+    def serialize(self):
+        return {
+            'admin_id': self.id,
+            'email': self.email,
+            'isDeleted': self.isDeleted
         }
-    )
 
-    #redirect_uri = url_for('callback', _external=True)
-    redirect_uri = "http://localhost:"+str(APP_PORT)+"/callback"
-    session['nonce'] = generate_token()
-    return oauth.login.authorize_redirect(redirect_uri, nonce=session['nonce'])
+class Feedback(Base):
+    __tablename__ = 'feedback'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100))
+    email = Column(String(100))
+    text = Column(Text, nullable=False)
+    submission_date = Column(DateTime(timezone=True), default=func.now())
+    isDeleted = Column(Integer, default=False, nullable=False)
+    actions = relationship('Action', back_populates='feedback')
+
+    def serialize(self):
+        return {
+            'feedback_id': self.id,
+            'name': self.name,
+            'email': self.email,
+            'text': self.text,
+            'submission_date': self.submission_date,
+            'isDeleted': self.isDeleted
+        }
+
+class Action(Base):
+    __tablename__ = 'action'
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(Integer, ForeignKey('admin.id'), nullable=False)
+    feedback_id = Column(Integer, ForeignKey('feedback.id'), nullable=False)
+    comment = Column(Text, nullable=False)
+    action_date = Column(DateTime(timezone=True), default=func.now())
+
+    admin = relationship('Admin', back_populates='actions')
+    feedback = relationship('Feedback', back_populates='actions')
+
+    def serialize(self):
+        return {
+            'action_id': self.id,
+            'admin_id': self.admin_id,
+            'feedback_id': self.feedback_id,
+            'comment': self.comment,
+            'action_date': self.action_date
+        }
 
 
-@app.route("/callback")
-def callback():
-    """
-    callback: rerouted page after logging in that handles Google SSO and encoding of JWT token
-    """
-    token = oauth.login.authorize_access_token()
-    user = oauth.login.parse_id_token(token, nonce=session['nonce'])
-    session["google_id"] = user
-    session["email"] = user["email"]
-    session["name"] = user["name"]
+class MySQLDataService:
 
-    response = requests.post(DB_URI+"/api/admin/check/",
-        json = {"email": session['email']})
+    def __init__(self):
+        self.engine = create_engine('sqlite:///instance/sitemgmt.db')
+        self.Session = sessionmaker(bind=self.engine)
+        Base.metadata.create_all(self.engine)
+
+    def publish_to_sns(self, message: str):
+        topic_arn = 'arn:aws:sns:us-east-2:073127164341:delete_admin'
+        sns = boto3.client('sns', region_name='us-east-2')  
+
+        response = sns.publish(
+            TopicArn=topic_arn,
+            Message=message
+        )
+
+        return response
+
+    def reset_database(self):
+        Base.metadata.drop_all(self.engine)
+        Base.metadata.create_all(self.engine)
+
+    # Admin Resources
+
+    def check_email(self, email):
+        if email is None:
+            return "Email cannot be null", 400
+
+        email = email.lower()
+        session = self.Session()
+        admin = session.query(Admin).filter(func.lower(Admin.email) == email).first()
+        session.close()
+
+        if not admin:
+            return "Email not found", 404
+        if admin.isDeleted == True:
+            return "Admin not activated", 400
+        
+        return admin.serialize()
 
 
-    if response.status_code != 200:
-        abort(401)  # Unauthorized
+    def get_all_admin(self):
+        session = self.Session()
+        admin_list = session.query(Admin).all()
+        session.close()
+        return jsonify([admin.serialize() for admin in admin_list])
 
-    admin = response.json()
+
+    def get_admin(self, admin_id):
+        session = self.Session()
+        admin = session.query(Admin).get(admin_id)
+
+        if not admin:
+            session.close()
+            return "Admin not found", 404
+        if admin.isDeleted == True:
+            session.close()
+            return "Admin not activated", 400
+        
+        result = admin.serialize()
+        session.close()
+        return jsonify(result)
 
 
-    if isinstance(admin, tuple):
-        error_message, error_code = admin
-        if error_code == 404:
-            return jsonify({"error": "User not found in administrators database"}), 404
+    def add_admin(self, email):
+        session = self.Session()
+        
+        if email is None:
+            session.close()
+            return "Email cannot be null", 400
+
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            session.close()
+            return "Invalid email format", 400
         else:
-            return jsonify({"error": f"Error {error_code}: {error_message}"}), error_code
+            email = email.lower()
 
-    session["admin_id"] = admin["admin_id"]
-
-    # Encode user information into JWT
-    encoded_jwt = encode_jwt({"google_id": session["google_id"], "name": session["name"]})
-    print("encoded_jwt: ", encoded_jwt)
-    session["jwt_token"] = encoded_jwt
-    return redirect("/protected_area")
-###
-
-
-@app.route("/logout")
-def logout():
-    """
-    logout: user can choose to clear the session by logging out
-    """
-    session.clear()
-    return redirect("/")
-
-
-@app.get("/")
-def index():
-    """
-    index: returns home landing page for where users can choose to log in
-    """
-    return render_template(
-        "index.html"
-    )
+        admin = session.query(Admin).filter(func.lower(Admin.email) == email).first()
+        
+        if not admin:
+            new_admin = Admin(email=email)
+            session.add(new_admin)
+            session.commit()
+            session.close()
+            return "Successfully added an admin", 200
+        else:
+            if admin.isDeleted == True:
+                admin.isDeleted = False
+                session.commit()
+                session.close()
+                return "Successfully reactivated a deleted admin", 200
+            else:
+                session.close()
+                return "admin already exists and is activated", 200
 
 
-##
-@app.route("/protected_area")
-@login_is_required
-def protected_area():
-    """
-    protected_area: decodes JWT to get user information and routes user to admin landing page
-    """
-    print("Got to Protected Area Function")
-    decoded_jwt = decode_jwt(session["jwt_token"])
-    user_name = decoded_jwt.get("name")
-    print("decoded_jwt: ", decoded_jwt)
-    return render_template(
-        "protected_area.html",
-        user_name=user_name
-    )
+    def delete_admin(self, email):
+        session = self.Session()
+        admin = session.query(Admin).filter(func.lower(Admin.email) == email).first()
 
-@app.route("/add_admin")
-@login_is_required
-def add_admin_form():
-    """
-    protected_area: decodes JWT to get user information and routes user to admin landing page
-    """
-    decoded_jwt = decode_jwt(session["jwt_token"])
-    user_name = decoded_jwt.get("name")
-    print("decoded_jwt: ", decoded_jwt)
-    return render_template(
-        "add_admin_form.html",
-        server_url=DB_URI
-    )
+        if admin:
+            admin.isDeleted = True
+            try:
+                session.commit()
+                try:
+                    self.publish_to_sns(f'Admin {admin.email} has been deleted')
+                except (NoCredentialsError, ClientError) as e:
+                    print(f"An error occurred while publishing to SNS: {e}")
+                session.close()
+                return "Successfully deactivated an admin", 200
+            except (IntegrityError, SQLAlchemyError):
+                session.rollback()
+                session.close()
+                return "Error deactivating an admin", 501
+        else:
+            session.close()
+            return "Admin not found", 404
 
-if __name__ == "__main__":
-    app.run(port=APP_PORT, debug=True)
+
+    def update_admin(self, email, new_email):
+        session = self.Session()
+        admin = session.query(Admin).filter(func.lower(Admin.email) == email).first()
+
+        if admin:
+            if not new_email:
+                if admin.isDeleted == True:
+                    admin.isDeleted = False
+                    session.commit()
+                    session.close()
+                    return "Successfully reactivated a deleted admin", 200
+                else:
+                    session.close()
+                    return "Email cannot be null", 400
+
+            if not re.match(r"[^@]+@[^@]+\.[^@]+", new_email):
+                session.close()
+                return "Invalid email format", 400
+            else:
+                new_email = new_email.lower()
+
+            if session.query(Admin).filter(func.lower(Admin.email) == new_email).first():
+                session.close()
+                return "Email already exists", 400
+
+            admin.email = new_email
+
+            if admin.isDeleted == True:
+                admin.isDeleted = False
+                session.commit()
+                session.close()
+                return "Successfully activated an admin and updated the email", 200
+            else:
+                session.commit()
+                session.close()
+                return "Successfully updated an admin email", 200
+
+        else:
+            session.close()
+            return "Admin not found", 404
