@@ -247,6 +247,6 @@ async def logout(request: Request):
 
 
 if __name__ == "__main__":
-    #uvicorn.run(app, host="0.0.0.0", port=App_port)
-    app.run(debug=True, port=App_port)
+    uvicorn.run(app, host="0.0.0.0", port=App_port)
+    #app.run(debug=True, port=App_port)
 
