@@ -1,0 +1,70 @@
+from fastapi import FastAPI, Request, HTTPException
+from json import JSONDecodeError
+import httpx
+import uvicorn
+
+app = FastAPI()
+
+### Set up the API URLs ###
+
+admin_base_url = 'http://localhost:8080/api/admin'
+admin_endpoints = {
+    'get': '/<id>',
+    'post': '',
+    'put': '/<id>',
+    'delete': '/<id>',
+    'check': '/check'
+}
+
+API_URLS = {
+    'admin': {endpoint: admin_base_url + path for endpoint, path in admin_endpoints.items()},
+}
+
+async def make_api_request(method: str, url: str, data=None):
+    async with httpx.AsyncClient() as client:
+        if method not in ["GET", "POST", "PUT", "DELETE"]:
+            raise HTTPException(status_code=400, detail="Invalid method")
+
+        if method in ["POST", "PUT"]:
+            response = await getattr(client, method.lower())(url, json=data, follow_redirects=True)
+        else:
+            response = await getattr(client, method.lower())(url, follow_redirects=True)
+
+        if response.status_code != 200 and response.status_code != 201:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        try:
+            return response.json()
+        except JSONDecodeError:
+            return response.text
+
+@app.post('/api/admin/')
+async def post_admin(request: Request):
+    data = await request.json()
+    return await make_api_request("POST", API_URLS['admin']['post'], data)
+
+# Not sure why, but no trailing slash here works for both w/ and w/o slash when calling
+@app.post('/api/admin/check')   
+async def check_admin_email(request: Request):
+    data = await request.json()
+    return await make_api_request("POST", API_URLS['admin']['check'], data)
+
+@app.get('/api/admin/')
+async def get_all_admin():
+    return await make_api_request("GET", API_URLS['admin']['get'].replace('<id>', ''))
+
+@app.get('/api/admin/{id}')
+async def get_admin(id: int):
+    return await make_api_request("GET", API_URLS['admin']['get'].replace('<id>', str(id)))
+
+@app.put('/api/admin/{id}')
+async def put_admin(id: int, request: Request):
+    data = await request.json()
+    return await make_api_request("PUT", API_URLS['admin']['put'].replace('<id>', str(id)), data)
+
+@app.delete('/api/admin/{id}')
+async def delete_admin(id: int):
+    return await make_api_request("DELETE", API_URLS['admin']['delete'].replace('<id>', str(id)))
+
+if __name__ == "__main__":
+    uvicorn.run("admin:app", host="0.0.0.0", port=6061, reload=True, log_level="debug")

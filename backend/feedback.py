@@ -6,6 +6,7 @@ import uvicorn
 app = FastAPI()
 
 ### Set up the API URLs ###
+
 feedback_base_url = 'http://localhost:8080/api/feedback'
 feedback_endpoints = {
     'get': '/<id>',
@@ -40,6 +41,8 @@ async def make_api_request(method: str, url: str, data=None):
 async def post_feedback(request: Request):
     data = await request.json()
     return await make_api_request("POST", API_URLS['feedback']['post'], data)
+
+### Below should not be consumed unless we want to allow users to edit their feedback ###
 
 @app.get('/api/feedback/{id}')
 async def get_feedback(id: int):
