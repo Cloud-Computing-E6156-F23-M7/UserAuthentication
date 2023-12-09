@@ -16,8 +16,23 @@ admin_endpoints = {
     'check': '/check'
 }
 
+feedback_base_url = 'http://localhost:8080/api/admin/feedback'
+feedback_endpoints = {
+    'get': '/<id>'
+}
+
+action_base_url = admin_base_url
+action_endpoints = {
+    'get': '/action/<id>',
+    'post': '/<admin_id>/feedback/<feedback_id>',
+    'put': '/action/<id>',
+    'delete': '/action/<id>',
+}
+
 API_URLS = {
     'admin': {endpoint: admin_base_url + path for endpoint, path in admin_endpoints.items()},
+    'feedback': {endpoint: feedback_base_url + path for endpoint, path in feedback_endpoints.items()},
+    'action': {endpoint: action_base_url + path for endpoint, path in action_endpoints.items()}
 }
 
 async def make_api_request(method: str, url: str, data=None):
@@ -37,6 +52,8 @@ async def make_api_request(method: str, url: str, data=None):
             return response.json()
         except JSONDecodeError:
             return response.text
+
+### Admin resource ###
 
 @app.post('/api/admin/')
 async def post_admin(request: Request):
@@ -65,6 +82,37 @@ async def put_admin(id: int, request: Request):
 @app.delete('/api/admin/{id}')
 async def delete_admin(id: int):
     return await make_api_request("DELETE", API_URLS['admin']['delete'].replace('<id>', str(id)))
+
+### Feedback resource available to admin ###
+
+# TODO: Use graphQL to get all feedback with its actions and get feedback by id
+
+### Action resource ###
+
+@app.post('/api/admin/{admin_id}/feedback/{feedback_id}')
+async def post_admin_action(admin_id: int, feedback_id: int, request: Request):
+    data = await request.json()
+    return await make_api_request("POST", API_URLS['action']['post'].replace('<admin_id>', str(admin_id)).replace('<feedback_id>', str(feedback_id)), data)
+
+@app.put('/api/admin/action/{id}')
+async def put_admin_action(id: int, request: Request):
+    data = await request.json()
+    return await make_api_request("PUT", API_URLS['action']['put'].replace('<id>', str(id)), data)
+
+@app.delete('/api/admin/action/{id}')
+async def delete_admin_action(id: int):
+    return await make_api_request("DELETE", API_URLS['action']['delete'].replace('<id>', str(id)))
+
+@app.get('/api/admin/action/')
+async def get_all_action():
+    return await make_api_request("GET", API_URLS['action']['get'].replace('<id>', ''))
+
+# Not really to be consumed by the frontend, but here for completeness
+@app.get('/api/admin/action/{id}')
+async def get_action(id: int):
+    return await make_api_request("GET", API_URLS['action']['get'].replace('<id>', str(id)))
+
+
 
 if __name__ == "__main__":
     uvicorn.run("admin:app", host="0.0.0.0", port=6061, reload=True, log_level="debug")
