@@ -58,5 +58,5 @@ async def delete_feedback(id: int):
     return await make_api_request("DELETE", API_URLS['feedback']['delete'].replace('<id>', str(id)))
 
 if __name__ == "__main__":
-    uvicorn.run("feedback:app", host="0.0.0.0", port=6060, reload=True, log_level="debug")
+    uvicorn.run("feedback:app", host="0.0.0.0", port=6062, reload=True, log_level="debug")
     
