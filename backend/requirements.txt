@@ -31,7 +31,3 @@ SQLAlchemy~=2.0.23
 httpx~=0.25.1
 pydantic~=2.5.1
 starlette~=0.27.0
-Flask-Cors==4.0.0
-gunicorn==21.2.0
-packaging==23.2
-zipp==3.17.0
