@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Request, HTTPException
 from json import JSONDecodeError
-
 import httpx
 import uvicorn
-
-app = FastAPI()
+import strawberry
+from strawberry.asgi import GraphQL
+from datetime import datetime
 
 ### Set up the API URLs ###
 
@@ -53,6 +53,47 @@ async def make_api_request(method: str, url: str, data=None):
             return response.json()
         except JSONDecodeError:
             return response.text
+
+### Define the GraphQL schema ###
+
+@strawberry.type
+class Feedback:
+    id: int
+    name: str
+    email: str
+    text: str
+    submission_date: datetime
+    isDeleted: int
+
+@strawberry.type
+class Action:
+    id: int
+    admin_id: int
+    feedback_id: int
+    comment: str
+    action_date: datetime
+    feedback: Feedback
+
+@strawberry.type
+class Query:
+    @strawberry.field()
+    async def feedback(self, info, id: int) -> Feedback:
+        url = API_URLS['feedback']['get'].replace('<id>', str(id))
+        return await make_api_request("GET", url)
+
+    @strawberry.field()
+    async def action(self, info, id: int) -> Action:
+        url = API_URLS['action']['get'].replace('<id>', str(id))
+        return await make_api_request("GET", url)
+
+schema = strawberry.Schema(query=Query)
+
+graphql_app = GraphQL(schema)
+
+### Set up the FastAPI app ###
+
+app = FastAPI()
+app.add_route("/graphql", graphql_app)
 
 ### Admin resource ###
 
