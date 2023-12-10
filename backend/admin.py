@@ -8,7 +8,7 @@ from datetime import datetime
 
 ### Set up the API URLs ###
 
-admin_base_url = 'http://localhost:8080/api/admin'
+admin_base_url = 'http://localhost:6060/api/admin'
 admin_endpoints = {
     'get': '/<id>',
     'post': '',
@@ -17,7 +17,7 @@ admin_endpoints = {
     'check': '/check'
 }
 
-feedback_base_url = 'http://localhost:8080/api/admin/feedback'
+feedback_base_url = 'http://localhost:6060/api/admin/feedback'
 feedback_endpoints = {
     'get': '/<id>'
 }
