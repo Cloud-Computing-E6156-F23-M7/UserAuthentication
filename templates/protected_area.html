@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/a/ae/World-map-of-past-and-current-malaria-prevalence-world-development-report-2009.png') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 1;
+            color: #000;
+        }
+
+        header {
+            background-color: #333;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+        }
+
+        .logout-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #e74c3c;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b; /* Darker red on hover */
+        }
+
+        .add-admin-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #3498db; /* Blue color */
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .add-admin-btn:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+        }
+
+        .delete-admin-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #3498db; /* Blue color */
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .delete-admin-btn:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+        }
+
+        .update-admin-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #3498db; /* Blue color */
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .update-admin-btn:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+        }
+
+        /* Adjust the opacity for the background image */
+        body::before {
+            content: "";
+            background: rgba(255, 255, 255, 0.75); /* Adjust the opacity for the background image */
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            position: fixed;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Admin Dashboard</h1>
+    </header>
+
+    <div class="container">
+        <h2>Hello, {{ user_name }}!</h2>
+        <p>This is the admin dashboard. You can add more content here.</p>
+        <a href="/add_admin" class="add-admin-btn">Add Admin</a>
+        <a href="/update_admin" class="add-admin-btn">Update Admin</a>
+        <a href="/delete_admin" class="delete-admin-btn">Delete Admin</a>
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+</body>
+</html>
