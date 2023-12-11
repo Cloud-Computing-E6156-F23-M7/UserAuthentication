@@ -205,6 +205,7 @@ async def get_all_feedback_graphql():
                 admin {
                     adminId
                     email
+                    isDeleted
                 }
             }
         }
