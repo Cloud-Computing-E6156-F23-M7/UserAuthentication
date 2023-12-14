@@ -1,0 +1,17 @@
+version: "3"
+services:
+  admin:
+    build:
+      context: ./admin
+    ports:
+      - "6061:6061"
+  feedback:
+    build:
+      context: ./feedback
+    ports:
+      - "6062:6062"
+  middleware:
+    build:
+      context: ./MiddleWare
+    ports:
+      - "8084:8084"

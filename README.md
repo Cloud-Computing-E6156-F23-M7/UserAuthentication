@@ -3,13 +3,13 @@
 #To run without docker, simply run the app.py. 
 #No need to run SiteMgmt/backend/app.py separately
 
-#For running on docker
+# For Running on Docker all 3 Microservices
+```cd backend```
 
-# create virtual environment
-source venv/bin/activate
+```docker-compose up```
 
-#activate it 
-source venv/bin/activate
+# Activate virtual environment
+```source venv/bin/activate```
 
 # build docker image
 docker build -t dockerimage .
