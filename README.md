@@ -3,7 +3,7 @@
 #To run without docker, simply run the app.py. 
 #No need to run SiteMgmt/backend/app.py separately
 
-# For Running on Docker all 3 Microservices
+# For Running with Docker all 3 Microservices
 ```cd backend```
 
 ```docker-compose up```

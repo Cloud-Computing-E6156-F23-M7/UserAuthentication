@@ -7,7 +7,7 @@ import httpx
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi_sso_cp.sso.google import GoogleSSO
+from fastapi_sso.sso.google import GoogleSSO
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.templating import Jinja2Templates
 

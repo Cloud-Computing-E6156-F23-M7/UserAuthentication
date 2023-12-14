@@ -3,7 +3,7 @@
 
 import httpx
 
-from fastapi_sso_cp.sso.base import DiscoveryDocument, OpenID, SSOBase, SSOLoginError
+from fastapi_sso.sso.base import DiscoveryDocument, OpenID, SSOBase, SSOLoginError
 
 
 class GoogleSSO(SSOBase):

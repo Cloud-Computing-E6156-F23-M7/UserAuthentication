@@ -5,4 +5,4 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 EXPOSE 6062
 COPY . .
-CMD ["uvicorn", "feedback_cp:app", "--host", "0.0.0.0", "--port", "6062", "--reload", "--log-level", "debug"]
+CMD ["uvicorn", "feedback:app", "--host", "0.0.0.0", "--port", "6062", "--reload", "--log-level", "debug"]
