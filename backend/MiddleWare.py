@@ -31,7 +31,11 @@ JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b"+\
 "7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
-session = {}
+session = {"jwt_token": None,
+           "google_id": None,
+           "email": None,
+           "name": None,
+           "admin_id": None}
 
 ADMIN_SERVICE_URL = "http://localhost:6061"
 FEEDBACK_SERVICE_URL = "http://localhost:6062"
@@ -50,12 +54,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith('/api/admin/') \
         and not request.url.path.startswith('/api/admin/check'):
             try:
-            except KeyError:
-                return JSONResponse(status_code=502,
-                                    content={"message": "Please log in to proceed"})
+                payload = jwt.decode(session["jwt_token"],
+                                         JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            except jwt.ExpiredSignatureError:
+                return JSONResponse(status_code=403,
+                                    content={"message": "Your JWT has expired"})
             except jwt.PyJWTError:
-                return JSONResponse(status_code=502,
-                                    content={"message": "Bad request"})
+                return JSONResponse(status_code=403,
+                                    content={"message": "Please log in to proceed"})
 
         if request.url.path.startswith("/api/admin"):
             service_url = ADMIN_SERVICE_URL
@@ -75,10 +81,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     content=request_body,
                     params=request.query_params
                 )
-                try:
+                if response.status_code == httpx.codes.OK:
                     return JSONResponse(status_code=response.status_code,
                                         content=response.json())
-                except JSONDecodeError:
+                else:
                     return JSONResponse(status_code=response.status_code,
                                         content=response.text)
         except httpx.RequestError as exc:
@@ -187,4 +193,4 @@ async def logout(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=App_port)
+    uvicorn.run("MiddleWare:app", host="0.0.0.0", port=App_port, reload=True, log_level="debug")
