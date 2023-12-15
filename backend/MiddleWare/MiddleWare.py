@@ -14,7 +14,7 @@ from starlette.templating import Jinja2Templates
 # Google SSO and JWT Configuration
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 App_port = 8084
-with open('./client_secret_cp.json') as json_file:
+with open('./client_secret.json') as json_file:
     data = json.load(json_file)
     CLIENT_ID = data['web']['client_id']
     CLIENT_SECRET = data['web']['client_secret']

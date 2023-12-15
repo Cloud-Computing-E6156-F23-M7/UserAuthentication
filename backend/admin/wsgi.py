@@ -1,5 +1,5 @@
 # wsgi.py
-from MiddleWare import app
+from admin import app
 
 if __name__ == "__main__":
     app.run()
