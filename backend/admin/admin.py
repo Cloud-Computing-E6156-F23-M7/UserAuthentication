@@ -8,7 +8,7 @@ from typing import Optional, List
 
 ### Set up the API URLs ###
 
-feedback_base_url = 'http://localhost:6060/api'
+feedback_base_url = 'http://3.145.189.61:6060/api'
 feedback_endpoints = {
     'get': '/feedback/<id>',
     'get_all': '/admin/feedback',
