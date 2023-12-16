@@ -42,8 +42,8 @@ session = {"jwt_token": None,
             "name": None,
             "admin_id": None}
 
-ADMIN_SERVICE_URL = "http://18.222.192.226:6061"
-FEEDBACK_SERVICE_URL = "http://18.222.192.226:6062"
+ADMIN_SERVICE_URL = "http://18.216.160.46:6061"
+FEEDBACK_SERVICE_URL = "http://18.216.160.46:6062"
 
 
 # Middleware for JWT Authentication
