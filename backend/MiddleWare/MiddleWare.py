@@ -14,6 +14,8 @@ from starlette.templating import Jinja2Templates
 # Google SSO and JWT Configuration
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 App_port = 8084
+USER_AUTH_IP = "http://18.216.160.46:"
+
 client_secret_path = os.path.join(
     os.getcwd(), 
     'client_secret.json'
@@ -22,7 +24,7 @@ with open(client_secret_path) as json_file:
     data = json.load(json_file)
     CLIENT_ID = data['web']['client_id']
     CLIENT_SECRET = data['web']['client_secret']
-    REDIRECT_URI = "http://localhost:" + str(App_port) + "/callback"
+    REDIRECT_URI = USER_AUTH_IP + str(App_port) + "/callback"
 
 sso = GoogleSSO(
     client_id=CLIENT_ID,
@@ -42,8 +44,8 @@ session = {"jwt_token": None,
             "name": None,
             "admin_id": None}
 
-ADMIN_SERVICE_URL = "http://18.216.160.46:6061"
-FEEDBACK_SERVICE_URL = "http://18.216.160.46:6062"
+ADMIN_SERVICE_URL = f"{USER_AUTH_IP}6061"
+FEEDBACK_SERVICE_URL = f"{USER_AUTH_IP}6062"
 
 
 # Middleware for JWT Authentication
