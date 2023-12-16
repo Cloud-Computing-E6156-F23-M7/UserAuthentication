@@ -8,9 +8,10 @@ from typing import Optional, List
 
 ### Set up the API URLs ###
 
-REPO_PUBLIC_IP = 'http://3.17.56.172:6060'
+SITEMGMT_IP = 'http://3.17.56.172:6060'
+USER_AUTH_IP = 'http://18.216.160.46:6061'
 
-feedback_base_url = '{REPO_PUBLIC_IP}/api'
+feedback_base_url = '{USER_AUTH_IP}/api'
 feedback_endpoints = {
     'get': '/feedback/<id>',
     'get_all': '/admin/feedback',
