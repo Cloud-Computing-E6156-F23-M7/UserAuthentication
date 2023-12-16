@@ -11,7 +11,7 @@ from typing import Optional, List
 SITEMGMT_IP = 'http://3.17.56.172:6060'
 USER_AUTH_IP = 'http://18.216.160.46:6061'
 
-feedback_base_url = '{SITEMGMT_IP}/api'
+feedback_base_url = f'{SITEMGMT_IP}/api'
 feedback_endpoints = {
     'get': '/feedback/<id>',
     'get_all': '/admin/feedback',
