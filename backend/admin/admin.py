@@ -11,7 +11,7 @@ from typing import Optional, List
 SITEMGMT_IP = 'http://3.17.56.172:6060'
 USER_AUTH_IP = 'http://18.216.160.46:6061'
 
-feedback_base_url = '{USER_AUTH_IP}/api'
+feedback_base_url = '{SITEMGMT_IP}/api'
 feedback_endpoints = {
     'get': '/feedback/<id>',
     'get_all': '/admin/feedback',
@@ -43,7 +43,7 @@ API_URLS = {
     'action': {endpoint: action_base_url + path for endpoint, path in action_endpoints.items()}
 }
 
-graphql_url = f'{REPO_PUBLIC_IP}/graphql'
+graphql_url = f'{USER_AUTH_IP}/graphql'
 
 async def make_api_request(method: str, url: str, data=None):
     async with httpx.AsyncClient() as client:
