@@ -8,7 +8,9 @@ from typing import Optional, List
 
 ### Set up the API URLs ###
 
-feedback_base_url = 'http://3.17.56.172:6060/api'
+REPO_PUBLIC_IP = 'http://3.17.56.172:6060'
+
+feedback_base_url = '{REPO_PUBLIC_IP}/api'
 feedback_endpoints = {
     'get': '/feedback/<id>',
     'get_all': '/admin/feedback',
@@ -39,6 +41,8 @@ API_URLS = {
     'feedback': {endpoint: feedback_base_url + path for endpoint, path in feedback_endpoints.items()},
     'action': {endpoint: action_base_url + path for endpoint, path in action_endpoints.items()}
 }
+
+graphql_url = f'{REPO_PUBLIC_IP}/graphql'
 
 async def make_api_request(method: str, url: str, data=None):
     async with httpx.AsyncClient() as client:
@@ -211,8 +215,8 @@ async def get_all_feedback_graphql():
         }
     }
     """
-    url = "http://localhost:6061/graphql"
-    response = await make_api_request("POST", url, data={'query': query})
+
+    response = await make_api_request("POST", graphql_url, data={'query': query})
     return response
 
 @app.get('/api/admin/feedback/{id}')
