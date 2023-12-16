@@ -2,7 +2,7 @@ import os
 import uvicorn
 import jwt
 import json
-from json import JSONDecodeError
+import ssl
 import httpx
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException, Depends
@@ -58,12 +58,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.url.path.startswith("/logout"):
             return await call_next(request)
 
+        '''
         if request.url.path.startswith('/api/admin') \
         and not request.url.path.startswith('/api/admin/check'):
             try:
                 payload = jwt.decode(session["jwt_token"],
                                          JWT_SECRET_KEY, algorithms=[ALGORITHM])
-                if payload["admin_id"] == None:
+                if not payload or \
+                payload["admin_id"] != session["admin_id"] or\
+                payload["email"] != session["email"] or\
+                payload["name"] != session["name"] or\
+                payload["google_id"] != session["google_id"]:
                     return JSONResponse(status_code=403,
                                     content={"message": "You're not an admin"})
             except jwt.ExpiredSignatureError:
@@ -72,6 +77,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             except jwt.PyJWTError:
                 return JSONResponse(status_code=403,
                                     content={"message": "Please log in to proceed"})
+        '''
 
         if request.url.path.startswith("/api/admin"):
             service_url = ADMIN_SERVICE_URL
@@ -202,4 +208,8 @@ async def logout(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run("MiddleWare:app", host="0.0.0.0", port=App_port, reload=True, log_level="debug")
+    uvicorn.run("MiddleWare:app",
+                host="0.0.0.0",
+                port=App_port,
+                reload=True,
+                log_level="debug")
