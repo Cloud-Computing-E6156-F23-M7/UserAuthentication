@@ -81,7 +81,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         request_body = await request.body()
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 response = await client.request(
                     method=request.method,
                     url=f"{service_url}{request.url.path}",
