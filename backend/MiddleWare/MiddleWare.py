@@ -14,7 +14,7 @@ from starlette.templating import Jinja2Templates
 # Google SSO and JWT Configuration
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 App_port = 8084
-with open('./client_secret.json') as json_file:
+with open('../../client_secret.json') as json_file:
     data = json.load(json_file)
     CLIENT_ID = data['web']['client_id']
     CLIENT_SECRET = data['web']['client_secret']
@@ -27,15 +27,16 @@ sso = GoogleSSO(
     allow_insecure_http=True,
 )
 
+
 JWT_SECRET_KEY = "09d25e094faa6ca2556c818166b"+\
 "7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 session = {"jwt_token": None,
-           "google_id": None,
-           "email": None,
-           "name": None,
-           "admin_id": None}
+            "google_id": None,
+            "email": None,
+            "name": None,
+            "admin_id": None}
 
 ADMIN_SERVICE_URL = "http://localhost:6061"
 FEEDBACK_SERVICE_URL = "http://localhost:6062"
@@ -51,11 +52,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.url.path.startswith("/logout"):
             return await call_next(request)
 
-        if request.url.path.startswith('/api/admin/') \
+        if request.url.path.startswith('/api/admin') \
         and not request.url.path.startswith('/api/admin/check'):
             try:
                 payload = jwt.decode(session["jwt_token"],
                                          JWT_SECRET_KEY, algorithms=[ALGORITHM])
+                if payload["admin_id"] == None:
+                    return JSONResponse(status_code=403,
+                                    content={"message": "You're not an admin"})
             except jwt.ExpiredSignatureError:
                 return JSONResponse(status_code=403,
                                     content={"message": "Your JWT has expired"})
@@ -88,8 +92,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     return JSONResponse(status_code=response.status_code,
                                         content=response.text)
         except httpx.RequestError as exc:
-            return JSONResponse(status_code=502, content={"message": "Bad Gateway"})
-        except AttributeError as e:
             return JSONResponse(status_code=502, content={"message": "Bad Gateway"})
 
 
@@ -133,11 +135,11 @@ async def login():
 
 async def send_request():
     async with httpx.AsyncClient() as client:
-        url = "http://127.0.0.1:6061/api/admin/check"
+        url = f"{ADMIN_SERVICE_URL}/api/admin/check"
         payload = {"email": session["email"]}
         response = await client.post(url, json=payload)
 
-        if response.status_code == 200:
+        if response.status_code == httpx.codes.OK:
             return response.json()
         else:
             return None
@@ -157,7 +159,8 @@ async def auth_callback(request: Request):
             response = await send_request()
 
             if response is None:
-                raise HTTPException(status_code=401, detail="Invalid token")
+                raise HTTPException(status_code=401,
+                                    detail="You're not an admin")
 
             session["admin_id"] = response["adminId"]
 
