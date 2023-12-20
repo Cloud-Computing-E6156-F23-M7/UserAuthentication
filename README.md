@@ -1,18 +1,29 @@
-#FastAPI Authentication + SiteMgmt
-
-#To run without docker, simply run the app.py. 
-#No need to run SiteMgmt/backend/app.py separately
+# FastAPI Authentication + SiteMgmt
 
 # For Running with Docker all 3 Microservices
 ```cd backend```
 
 ```docker-compose up```
 
-# Activate virtual environment
+# To run without docker
+### Activate virtual environment
 ```source venv/bin/activate```
 
-# build docker image
-docker build -t dockerimage .
+``` pip install -r requirements.txt```
 
-#run docker container
-docker run -p 8084:8084 dockerimage
+``` cd backend ```
+
+### Run the files
+
+```python3 admin/admin.py ```
+
+```python3 feedback/feedback.py```
+
+```python3 MiddleWare/MiddleWare.py ```
+
+# Note about SiteMgmt
+Make sure to run ```SiteMgmt/backend/app.py``` separately either with docker or without
+
+When testing locally and not on the cloud, running UserAuth with docker will not work (docker can't run when APIs are calling localhost on separate docker containers)
+
+
